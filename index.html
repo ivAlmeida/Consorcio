@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Investir vs Consórcio - O Confronto Real</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 0; background:#f0f4f8; color: #1e293b; }
+    .wrap { max-width: 1100px; margin: 20px auto; padding: 15px; }
+    .card { background:#fff; border-radius: 16px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+    h1 { color: #0f172a; margin-bottom: 5px; font-size: 26px; }
+    .subtitle { color: #64748b; margin-bottom: 25px; }
+    
+    .grid-inputs { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 25px; background: #f8fafc; padding: 20px; border-radius: 12px; }
+    label { display:block; font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; color: #475569; }
+    input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+
+    .actions { display: flex; gap: 10px; margin-bottom: 30px; }
+    button { border: 0; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+    .btn-calc { background: #020617; color: #fff; flex: 2; }
+    .btn-reset { background: #e2e8f0; color: #475569; flex: 1; }
+
+    .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+    .res-box { padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .res-box.consorcio { border-left: 6px solid #ef4444; }
+    .res-box.investimento { border-left: 6px solid #22c55e; background: #f0fdf4; }
+    
+    .val { font-size: 24px; font-weight: 800; display: block; margin-top: 5px; }
+    .label-res { font-size: 13px; color: #64748b; }
+
+    .highlight { background: #1e293b; color: #fff; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 25px; }
+    .highlight b { color: #4ade80; font-size: 1.2em; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 20px; }
+    th { background: #1e293b; color: #fff; padding: 12px; text-align: left; }
+    td { padding: 10px; border-bottom: 1px solid #f1f5f9; }
+    .row-win { background: #dcfce7 !important; font-weight: 700; }
+    
+    @media (max-width: 768px) { .results-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="card">
+    <h1>Análise Real: Consórcio vs. Investimento</h1>
+    <p class="subtitle">Descubra por que "guardar o dinheiro" costuma vencer o consórcio matematicamente.</p>
+
+    <div class="grid-inputs">
+      <div>
+        <label>Valor do Veículo (R$)</label>
+        <input id="valorBem" type="number" value="60000">
+      </div>
+      <div>
+        <label>Prazo (Meses)</label>
+        <input id="prazo" type="number" value="60">
+      </div>
+      <div>
+        <label>Taxa Adm. (%)</label>
+        <input id="taxaAdm" type="number" value="16">
+      </div>
+      <div>
+        <label>Inflação Anual (%)</label>
+        <input id="inflacao" type="number" step="0.1" value="5">
+      </div>
+      <div>
+        <label>Rend. Inv. (% ao mês)</label>
+        <input id="rendimento" type="number" step="0.01" value="0.85">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-calc" onclick="simular()">Executar Projeção Matemática</button>
+      <button class="btn-reset" onclick="location.reload()">Limpar</button>
+    </div>
+
+    <div id="resultadoFinal" class="highlight" style="display:none">
+      </div>
+
+    <div class="results-grid">
+      <div class="res-box consorcio">
+        <span class="label-res">Total pago no Consórcio (Estimado)</span>
+        <span class="val" id="totalConsorcio">—</span>
+        <small id="obsConsorcio" style="color:#64748b"></small>
+      </div>
+      <div class="res-box investimento">
+        <span class="label-res">Total acumulado investindo</span>
+        <span class="val" id="totalInvestido">—</span>
+        <small style="color:#166534">Mesmo valor de parcela aplicado mensalmente.</small>
+      </div>
+    </div>
+
+    <h3>Planilha de Evolução Mensal</h3>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Mês</th>
+            <th>Parcela (c/ Reajuste)</th>
+            <th>Total Pago Consórcio</th>
+            <th>Saldo do Investimento</th>
+            <th>Valor do Bem (Inflacionado)</th>
+          </tr>
+        </thead>
+        <tbody id="tabelaCorpo"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  const brl = (n) => n.toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+
+  function simular() {
+    const valorInicial = Number(document.getElementById("valorBem").value);
+    const prazo = Number(document.getElementById("prazo").value);
+    const taxaAdm = Number(document.getElementById("taxaAdm").value) / 100;
+    const inflacaoAnual = Number(document.getElementById("inflacao").value) / 100;
+    const inflacaoMensal = Math.pow(1 + inflacaoAnual, 1/12) - 1;
+    const jurosInv = Number(document.getElementById("rendimento").value) / 100;
+
+    let totalPagoConsorcio = 0;
+    let saldoInvestimento = 0;
+    let valorBemAtualizado = valorInicial;
+    let parcelaBase = (valorInicial * (1 + taxaAdm)) / prazo;
+    let mesVitoria = -1;
+
+    const tabela = document.getElementById("tabelaCorpo");
+    tabela.innerHTML = "";
+    document.getElementById("resultadoFinal").style.display = "block";
+
+    for (let m = 1; m <= prazo; m++) {
+      // Reajuste anual da parcela e do valor do bem
+      if (m > 1 && (m - 1) % 12 === 0) {
+        valorBemAtualizado *= (1 + inflacaoAnual);
+        parcelaBase = (valorBemAtualizado * (1 + taxaAdm)) / prazo;
+      }
+
+      totalPagoConsorcio += parcelaBase;
+      saldoInvestimento = (saldoInvestimento + parcelaBase) * (1 + jurosInv);
+
+      // Verifica quando o investimento permite comprar o carro à vista
+      // O valor do bem para comparação também cresce mensalmente de forma linear/estimada
+      let valorBemNoMes = valorInicial * Math.pow(1 + inflacaoMensal, m);
+
+      if (mesVitoria === -1 && saldoInvestimento >= valorBemNoMes) {
+        mesVitoria = m;
+      }
+
+      const tr = document.createElement("tr");
+      if (m === mesVitoria) tr.className = "row-win";
+      
+      tr.innerHTML = `
+        <td>${m}º</td>
+        <td>${brl(parcelaBase)}</td>
+        <td>${brl(totalPagoConsorcio)}</td>
+        <td>${brl(saldoInvestimento)}</td>
+        <td>${brl(valorBemNoMes)}</td>
+      `;
+      tabela.appendChild(tr);
+    }
+
+    document.getElementById("totalConsorcio").textContent = brl(totalPagoConsorcio);
+    document.getElementById("totalInvestido").textContent = brl(saldoInvestimento);
+    document.getElementById("obsConsorcio").textContent = `Sua parcela começou em ${brl((valorInicial * (1+taxaAdm))/prazo)} e terminou em ${brl(parcelaBase)}.`;
+
+    const economiaPura = saldoInvestimento - totalPagoConsorcio;
+    document.getElementById("resultadoFinal").innerHTML = `
+      Ao investir, você teria o dinheiro para comprar o carro no <b>mês ${mesVitoria}</b> (faltando ${prazo - mesVitoria} meses para o fim do plano).<br>
+      No final do prazo, você teria <b>${brl(economiaPura)}</b> a mais no bolso do que se tivesse feito o consórcio!
+    `;
+  }
+</script>
+
+</body>
+</html>
