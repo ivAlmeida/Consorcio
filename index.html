@@ -160,4 +160,84 @@
       // Reajuste Anual do Consórcio e do Bem
       if (m > 1 && (m - 1) % 12 === 0) {
         valorBemAtual *= (1 + inflacaoAnual);
-        parcelaConsorcioBase =
+        parcelaConsorcioBase = (valorBemAtual * (1 + taxaAdm)) / prazo;
+      }
+
+      totalAcumFinan += parcelaFinan;
+      totalAcumConsorcio += parcelaConsorcioBase;
+      
+      // No investimento, simulamos que você investe o valor que pagaria no Consórcio
+      saldoInvestimento = (saldoInvestimento + parcelaConsorcioBase) * (1 + jurosInv);
+
+      let inflacaoMensal = Math.pow(1 + inflacaoAnual, 1/12) - 1;
+      let valorBemNoMes = valorInicial * Math.pow(1 + inflacaoMensal, m);
+
+      if (mesVitoria === -1 && saldoInvestimento >= valorBemNoMes) mesVitoria = m;
+
+      // Dados Gráfico
+      labels.push(m);
+      dFinan.push(totalAcumFinan.toFixed(2));
+      dCons.push(totalAcumConsorcio.toFixed(2));
+      dInv.push(saldoInvestimento.toFixed(2));
+      dValBem.push(valorBemNoMes.toFixed(2));
+
+      // Tabela
+      const tr = document.createElement("tr");
+      if (m === mesVitoria) tr.className = "row-win";
+      tr.innerHTML = `
+        <td>${m}</td>
+        <td>${brl(totalAcumFinan)}</td>
+        <td>${brl(totalAcumConsorcio)}</td>
+        <td>${brl(saldoInvestimento)}</td>
+        <td>${brl(valorBemNoMes)}</td>
+      `;
+      tabela.appendChild(tr);
+    }
+
+    renderizarGrafico(labels, dFinan, dCons, dInv, dValBem);
+
+    document.getElementById("totalFinan").textContent = brl(totalAcumFinan);
+    document.getElementById("subFinan").textContent = `Parcelas fixas de ${brl(parcelaFinan)}`;
+    
+    document.getElementById("totalConsorcio").textContent = brl(totalAcumConsorcio);
+    document.getElementById("subConsorcio").textContent = `Parcelas variáveis (reajuste anual)`;
+
+    document.getElementById("totalInvestido").textContent = brl(saldoInvestimento);
+    document.getElementById("subInvest").textContent = `Acúmulo com juros compostos`;
+
+    document.getElementById("resultadoFinal").style.display = "block";
+    document.getElementById("resultadoFinal").innerHTML = `
+      🚨 <b>Análise de Dados:</b> O Financiamento custa <b>${((totalAcumFinan/valorInicial - 1)*100).toFixed(0)}%</b> a mais que o valor original do bem.<br>
+      Investindo a mesma parcela, você compra o bem à vista no <b>mês ${mesVitoria}</b> e economiza <b>${brl(saldoInvestimento - totalAcumConsorcio)}</b> em relação ao consórcio!
+    `;
+  }
+
+  function renderizarGrafico(labels, finan, cons, inv, bem) {
+    const ctx = document.getElementById('meuGrafico').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Financiamento (Acumulado)', data: finan, borderColor: '#2563eb', borderWidth: 2, fill: false },
+          { label: 'Consórcio (Acumulado)', data: cons, borderColor: '#ef4444', borderWidth: 2, fill: false },
+          { label: 'Investimento (Saldo)', data: inv, borderColor: '#22c55e', borderWidth: 3, fill: true, backgroundColor: 'rgba(34, 197, 94, 0.05)' },
+          { label: 'Valor do Bem (Reajustado)', data: bem, borderColor: '#94a3b8', borderDash: [5, 5], fill: false }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { y: { ticks: { callback: v => 'R$' + v/1000 + 'k' } } }
+      }
+    });
+  }
+
+  simular();
+</script>
+
+</body>
+</html>
